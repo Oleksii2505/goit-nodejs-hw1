@@ -1,47 +1,43 @@
-const fs = require('fs/promises');
-const path = require('path');
-const {nanoid} = require('nanoid');
+const { Command } = require("commander");
+const program = new Command();
+const contacts = require('./contacts.js');
 
-const contactsPath = path.join(__dirname, 'db/contacts.json');
+program
+  .option('-a, --action <type>', 'choose action')
+  .option('-i, --id <type>', 'user id')
+  .option('-n, --name <type>', 'user name')
+  .option('-e, --email <type>', 'user email')
+  .option('-p, --phone <type>', 'user phone');
 
-async function listContacts() {
-    const contacts = await fs.readFile(contactsPath);
-    return JSON.parse(contacts);
-}
+program.parse(process.argv);
+
+const argv = program.opts();
+
+async function invokeAction({ action, id, name, email, phone }) {
+    switch (action) {
+      case 'list':
+        const allContacts = await contacts.listContacts();
+        console.table(allContacts) 
+        break;
   
-async function getContactById(contactId) {
-    const contacts = await listContacts();
-    const contactById = contacts.find(contact => contact.id === contactId);
-    return contactById || null;
-}
+      case 'get':
+        const contactById = await contacts.getContactById(id);
+        console.log(contactById);
+        break;
   
-async function removeContact(contactId) {
-    const contacts = await listContacts();
-    const index = contacts.findIndex(contact => contact.id === contactId);
-    if (index === -1) {
-        return null
+      case 'add':
+        const newContact = await contacts.addContact(name, email, phone);
+        console.log(newContact);
+        break;
+  
+      case 'remove':
+        const removedContact = await contacts.removeContact(id);
+        console.log(removedContact);
+        break;
+  
+      default:
+        console.warn('\x1B[31m Unknown action type!');
     }
-    const removedContact = contacts.splice(index, 1);
-    await fs.writeFile(contactsPath, JSON.stringify(contacts, null, 2));
-    return removedContact;
 }
   
-async function addContact(name, email, phone) {
-    const contacts = await listContacts();
-    const newContact = {
-        id: nanoid(),
-        name,
-        email,
-        phone,
-    };
-    contacts.push(newContact);
-    await fs.writeFile(contactsPath, JSON.stringify(contacts, null, 2));
-    return newContact;
-}
-
-module.exports = {
-    listContacts,
-    getContactById,
-    removeContact,
-    addContact
-}
+invokeAction(argv);
